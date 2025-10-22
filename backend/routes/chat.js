@@ -25,10 +25,10 @@ router.post('/start', protect, async (req, res) => {
 
     // Generate initial questions from JD
     const jdText = jd.chunks.map(chunk => chunk.text).join(' ');
-    const prompt = `Generate 3 interview questions based on this job description: ${jdText}`;
+    const prompt = `Generate 3 concise interview questions based on this JD only. Do NOT include rationale: ${jdText}`;
 
     const result = await model.generateContent(prompt);
-    const questions = result.response.text().split('\n').filter(q => q.trim()).slice(0, 3);
+    const questions = result.response.text().split('\n').filter(q => q.trim()).slice(0, 4);
 
     // Create chat session
     const chat = await Chat.create({

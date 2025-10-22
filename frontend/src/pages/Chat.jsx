@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import TextareaAutosize from 'react-textarea-autosize';
 
 const Chat = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingQuestions, setLoadingQuestions] = useState(true); // NEW
   const [chatId, setChatId] = useState(null);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -24,11 +25,14 @@ const Chat = () => {
 
   const startChat = async () => {
     try {
+      setLoadingQuestions(true);
       const response = await axios.post('/api/chat/start');
       setMessages(response.data.messages);
       setChatId(response.data.chatId);
     } catch (error) {
       toast.error('Failed to start chat: ' + error.response?.data?.message);
+    } finally {
+      setLoadingQuestions(false); // stop loader
     }
   };
 
@@ -41,10 +45,7 @@ const Chat = () => {
     setLoading(true);
 
     try {
-      const response = await axios.post('/api/chat/query', {
-        message: input,
-        chatId,
-      });
+      const response = await axios.post('/api/chat/query', { message: input, chatId });
 
       const aiMessage = {
         role: 'assistant',
@@ -55,7 +56,6 @@ const Chat = () => {
       };
 
       setMessages(prev => [...prev, aiMessage]);
-      setCurrentQuestionIndex(prev => prev + 1);
     } catch (error) {
       toast.error('Failed to send message: ' + error.response?.data?.message);
     }
@@ -70,57 +70,59 @@ const Chat = () => {
     }
   };
 
-  const getCurrentQuestion = () => {
-    const questionMessages = messages.filter(msg => msg.role === 'assistant' && !msg.score);
-    return questionMessages[currentQuestionIndex];
-  };
-
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-center mb-8">AI Interview Practice</h1>
+      <h1 className="text-3xl font-bold text-center mb-6">AI Interview Practice</h1>
 
-      <div className="bg-white rounded-lg shadow-lg h-96 flex flex-col">
+      <div className="bg-white rounded-xl shadow-lg h-[600px] flex flex-col overflow-hidden">
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.map((message, index) => (
-            <div
-              key={index}
-              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                  message.role === 'user'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-200 text-gray-800'
-                }`}
-              >
-                <p className="whitespace-pre-wrap">{message.content}</p>
-
-                {message.score && (
-                  <div className="mt-2 text-sm">
-                    <p className="font-semibold">Score: {message.score}/10</p>
-                    {message.feedback && (
-                      <p className="mt-1">{message.feedback}</p>
-                    )}
-                    {message.citations && message.citations.length > 0 && (
-                      <div className="mt-2">
-                        <p className="font-medium">Citations:</p>
-                        <ul className="list-disc list-inside">
-                          {message.citations.map((citation, i) => (
-                            <li key={i} className="text-xs">{citation}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                )}
+          {loadingQuestions ? (
+            <div className="flex justify-center items-center h-full">
+              <div className="flex items-center space-x-2 text-gray-600">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-600"></div>
+                <span>Loading interview questions...</span>
               </div>
             </div>
-          ))}
+          ) : (
+            messages.map((msg, idx) => (
+              <div
+                key={idx}
+                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-[80%] px-4 py-2 rounded-2xl break-words ${
+                    msg.role === 'user'
+                      ? 'bg-blue-600 text-white rounded-br-none'
+                      : 'bg-gray-100 text-gray-800 rounded-bl-none'
+                  }`}
+                >
+                  <p className="whitespace-pre-wrap">{msg.content}</p>
 
-          {loading && (
+                  {msg.score && (
+                    <div className="mt-2 text-sm bg-gray-50 p-2 rounded-lg border border-gray-200">
+                      <p className="font-semibold">Score: {msg.score}/10</p>
+                      {msg.feedback && <p className="mt-1">{msg.feedback}</p>}
+                      {msg.citations && msg.citations.length > 0 && (
+                        <div className="mt-2">
+                          <p className="font-medium">Citations:</p>
+                          <ul className="list-disc list-inside text-xs text-gray-600">
+                            {msg.citations.map((c, i) => (
+                              <li key={i}>{c}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+
+          {loading && !loadingQuestions && (
             <div className="flex justify-start">
-              <div className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg">
+              <div className="bg-gray-100 text-gray-600 px-4 py-2 rounded-2xl">
                 <div className="flex items-center space-x-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
                   <span>AI is thinking...</span>
@@ -133,31 +135,26 @@ const Chat = () => {
         </div>
 
         {/* Input */}
-        <div className="border-t p-4">
-          <div className="flex space-x-2">
-            <textarea
+        <div className="border-t p-4 bg-gray-50">
+          <div className="flex space-x-2 items-end">
+            <TextareaAutosize
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Type your answer here..."
-              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              rows="2"
-              disabled={loading}
+              className="flex-1 border border-gray-300 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+              minRows={2}
+              maxRows={6}
+              disabled={loading || loadingQuestions} // disable input while loading questions
             />
             <button
               onClick={sendMessage}
-              disabled={loading || !input.trim()}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading || !input.trim() || loadingQuestions}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Send
             </button>
           </div>
-
-          {getCurrentQuestion() && (
-            <div className="mt-2 text-sm text-gray-600">
-              <p><strong>Current Question:</strong> {getCurrentQuestion().content}</p>
-            </div>
-          )}
         </div>
       </div>
 
