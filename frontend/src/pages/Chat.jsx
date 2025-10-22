@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import  { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import TextareaAutosize from 'react-textarea-autosize';
@@ -7,7 +7,7 @@ const Chat = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [loadingQuestions, setLoadingQuestions] = useState(true); // NEW
+  const [loadingQuestions, setLoadingQuestions] = useState(true); 
   const [chatId, setChatId] = useState(null);
   const messagesEndRef = useRef(null);
 
@@ -32,7 +32,7 @@ const Chat = () => {
     } catch (error) {
       toast.error('Failed to start chat: ' + error.response?.data?.message);
     } finally {
-      setLoadingQuestions(false); // stop loader
+      setLoadingQuestions(false); 
     }
   };
 
@@ -72,7 +72,7 @@ const Chat = () => {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-center mb-6">AI Interview Practice</h1>
+      <h1 className="text-3xl mt-10 font-bold text-center mb-6">AI Interview Practice</h1>
 
       <div className="bg-white rounded-xl shadow-lg h-[600px] flex flex-col overflow-hidden">
         {/* Messages */}
