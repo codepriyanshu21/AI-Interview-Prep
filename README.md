@@ -161,7 +161,6 @@ ai-powered-resume-prep/
 │   │   └── index.css
 │   ├── package.json
 │   └── tailwind.config.js
-├── TODO.md
 └── README.md
 ```
 
