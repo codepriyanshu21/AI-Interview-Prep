@@ -24,7 +24,7 @@ const Navbar = () => {
             to="/"
             className="text-2xl font-extrabold tracking-tight hover:text-white/80 transition duration-300"
           >
-            Interview Prep AI
+            IntelliPrep
           </Link>
 
           {/* Desktop Links */}
