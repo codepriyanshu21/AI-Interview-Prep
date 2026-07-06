@@ -6,9 +6,30 @@ import { retrieveRelevantChunks } from '../utils/rag.js';
 import protect from '../middleware/auth.js';
 
 const router = express.Router();
-
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
+
+const MODEL_PRIORITY = [
+  'gemini-2.5-flash-lite',
+  'gemini-1.5-flash',
+  'gemini-1.5-flash-8b',
+];
+
+const generateWithFallback = async (prompt) => {
+  for (const modelName of MODEL_PRIORITY) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      return result;
+    } catch (err) {
+      const is503 =
+        err.message?.includes('503') ||
+        err.message?.includes('Service Unavailable');
+      const isLast = modelName === MODEL_PRIORITY[MODEL_PRIORITY.length - 1];
+      if (!is503 || isLast) throw err;
+      console.warn(`Model ${modelName} unavailable, trying next...`);
+    }
+  }
+};
 
 // @desc    Start chat session with initial questions
 // @route   POST /api/chat/start
@@ -27,7 +48,7 @@ router.post('/start', protect, async (req, res) => {
     const jdText = jd.chunks.map(chunk => chunk.text).join(' ');
     const prompt = `Generate 3 concise interview questions based on this JD only. Do NOT include rationale: ${jdText}`;
 
-    const result = await model.generateContent(prompt);
+    const result = await generateWithFallback(prompt);
     const questions = result.response.text().split('\n').filter(q => q.trim()).slice(0, 4);
 
     // Create chat session
@@ -70,32 +91,30 @@ router.post('/query', protect, async (req, res) => {
 
     const prompt = `
 Evaluate this interview response using the provided context.
-
 Question: ${lastQuestion}
 Response: ${message}
 Context (from resume and job description):
 ${context}
-
 Provide:
 1. A score from 1-10
 2. Brief feedback (max 100 words)
 3. Any relevant citations from the context
-
 Format your response as:
 Score: X/10
 Feedback: [your feedback]
 Citations: [relevant snippets, if any]
 `;
 
-    const result = await model.generateContent(prompt);
+    const result = await generateWithFallback(prompt);
     const aiResponse = result.response.text();
 
     // Parse AI response
-    const lines = aiResponse.split('\n');
     const scoreMatch = aiResponse.match(/Score:\s*(\d+)/);
     const score = scoreMatch ? parseInt(scoreMatch[1]) : null;
+
     const feedbackMatch = aiResponse.match(/Feedback:\s*(.+?)(?=Citations:|$)/s);
     const feedback = feedbackMatch ? feedbackMatch[1].trim() : aiResponse;
+
     const citationsMatch = aiResponse.match(/Citations:\s*(.+)/s);
     const citations = citationsMatch ? citationsMatch[1].split('\n').filter(c => c.trim()) : [];
 
